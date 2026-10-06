@@ -277,10 +277,6 @@ public class GreedyTokenSampler: TokenSampling, @unchecked Sendable {
             return idxArray.last.map(Int32.init) ?? Int32(vocabSize - 1)
         } else {
             let probsArray = await probs.toFloatArray()
-            let probSum = probsArray.reduce(0, +)
-            guard probSum > 0 else {
-                return Int32(vocabSize - 1)
-            }
             let randomValue = Float.random(in: 0..<1, using: &rng)
             var cumulativeSum: Float = 0
             for (i, probability) in probsArray.enumerated() {
