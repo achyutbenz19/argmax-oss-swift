@@ -1,4 +1,4 @@
-// swift-tools-version: 5.9
+// swift-tools-version: 5.10
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
@@ -55,23 +55,26 @@ let package = Package(
                 "WhisperKit",
                 "TTSKit",
                 "SpeakerKit",
-            ]
+            ],
+            swiftSettings: swiftSettings()
         ),
         .target(
-            name: "ArgmaxCore"
+            name: "ArgmaxCore",
+            swiftSettings: swiftSettings()
         ),
         .target(
             name: "WhisperKit",
             dependencies: [
                 "ArgmaxCore",
-            ]
+            ],
+            swiftSettings: swiftSettings()
         ),
         .target(
             name: "TTSKit",
             dependencies: [
                 "ArgmaxCore",
             ],
-            swiftSettings: [.enableExperimentalFeature("StrictConcurrency")]
+            swiftSettings: swiftSettings()
         ),
         .target(
             name: "SpeakerKit",
@@ -79,7 +82,17 @@ let package = Package(
                 "ArgmaxCore",
                 "WhisperKit",
             ],
-            swiftSettings: [.enableExperimentalFeature("StrictConcurrency")]
+            swiftSettings: swiftSettings()
+        ),
+        .testTarget(
+            name: "ArgmaxCoreTests",
+            dependencies: [
+                "ArgmaxCore",
+            ],
+            resources: [
+                .process("External/Resources"),
+            ],
+            swiftSettings: swiftSettings()
         ),
         .testTarget(
             name: "WhisperKitTests",
@@ -89,13 +102,15 @@ let package = Package(
             exclude: ["UnitTestsPlan.xctestplan"],
             resources: [
                 .process("Resources"),
-            ]
+            ],
+            swiftSettings: swiftSettings()
         ),
         .testTarget(
             name: "TTSKitTests",
             dependencies: [
                 "TTSKit"
-            ]
+            ],
+            swiftSettings: swiftSettings()
         ),
         .testTarget(
             name: "SpeakerKitTests",
@@ -106,9 +121,7 @@ let package = Package(
             resources: [
                 .process("Resources"),
             ],
-            swiftSettings: [
-                .enableExperimentalFeature("StrictConcurrency")
-            ]
+            swiftSettings: swiftSettings()
         ),
         .executableTarget(
             name: "ArgmaxCLI",
@@ -124,7 +137,7 @@ let package = Package(
             ] : []),
             path: "Sources/ArgmaxCLI",
             exclude: (isServerEnabled() ? [] : ["Server"]),
-            swiftSettings: (isServerEnabled() ? [.define("BUILD_SERVER_CLI")] : [])
+            swiftSettings: swiftSettings() + (isServerEnabled() ? [.define("BUILD_SERVER_CLI")] : [])
         )
     ],
     swiftLanguageVersions: [.v5]
@@ -137,4 +150,8 @@ func isServerEnabled() -> Bool {
 
     // Default disabled, change to true temporarily for local development
     return false
+}
+
+func swiftSettings() -> [SwiftSetting] {
+    [.enableExperimentalFeature("StrictConcurrency")]
 }

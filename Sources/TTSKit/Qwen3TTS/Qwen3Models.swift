@@ -34,6 +34,8 @@ public enum Qwen3TTSConstants {
 
     /// Vocabulary size for the multi-code decoder heads (codes 1-15).
     public static let codecVocabSize: Int = 2048
+    /// Number of code_predictor lm_heads (codes 1-15 of an RVQ frame).
+    public static let mcdHeads: Int = 15
 
     // MARK: Audio format
 
@@ -54,7 +56,7 @@ public enum Qwen3TTSConstants {
     public static let sdCacheDim: Int = 8192
     public static let sdMaxSeq: Int = 256
     public static let sdHiddenDim: Int = 1024
-    public static let sdHiddenContextLen: Int = 16
+    public static let sdHiddenContextLen: Int = 4
 
     // MARK: Default HuggingFace sources
 
@@ -171,4 +173,39 @@ public enum Qwen3Language: String, CaseIterable, Sendable {
             case .italian: return 2070
         }
     }
+}
+
+// MARK: - SpeechDecoder Mode
+
+/// Selects which SpeechDecoder mode to use — i.e. how much audio is produced by a
+/// single prediction. `.latencyOptimized` decodes one RVQ frame per call;
+/// `.throughputOptimized` decodes four.
+@frozen
+public enum Qwen3SpeechDecoderMode: String, Sendable, CaseIterable {
+    case latencyOptimized
+    case throughputOptimized
+
+    /// CoreML function name corresponding to this mode.
+    public var functionName: String {
+        switch self {
+            case .latencyOptimized: return "latency"
+            case .throughputOptimized: return "throughput"
+        }
+    }
+}
+
+// MARK: - MultiCodeDecoder Mode
+
+/// Selects which MultiCodeDecoder graph expands a talker frame into its 15
+/// residual codes. `.stepped` decodes one position per prediction; `.fused`
+/// decodes the whole frame in one prediction with in-graph sampling.
+/// `.fused` requires a multifunction asset; legacy single-function assets are
+/// schema-identical to `stepped` and load fine in that mode.
+@frozen
+public enum Qwen3MultiCodeDecoderMode: String, Sendable, CaseIterable {
+    case stepped
+    case fused
+
+    /// CoreML function name corresponding to this mode.
+    public var functionName: String { rawValue }
 }

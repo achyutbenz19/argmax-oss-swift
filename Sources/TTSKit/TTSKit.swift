@@ -127,7 +127,7 @@ open class TTSKit: @unchecked Sendable {
         self.config = config
         self.seed = config.seed
 
-        Logging.shared.logLevel = config.verbose ? config.logLevel : .none
+        Logging.updateLogLevel(config.verbose ? config.logLevel : .none)
 
         setupPipeline(for: config.model, config: config)
 
@@ -388,12 +388,22 @@ open class TTSKit: @unchecked Sendable {
             let resolvedRepo = modelRepo ?? config.modelRepo
             let resolvedToken = modelToken ?? config.modelToken
 
+            // Carry the component variants and version directory over: `downloadPatterns`
+            // is derived from them, so dropping them here would fetch the preset defaults
+            // and then fail to load the variants actually configured.
             let downloadConfig = TTSKitConfig(
                 model: resolvedModel,
                 downloadBase: downloadBase ?? config.downloadBase,
                 modelRepo: resolvedRepo,
                 modelToken: resolvedToken,
                 modelEndpoint: endpoint,
+                versionDir: config.versionDir,
+                codeDecoderVariant: config.codeDecoderVariant,
+                multiCodeDecoderVariant: config.multiCodeDecoderVariant,
+                codeEmbedderVariant: config.codeEmbedderVariant,
+                multiCodeEmbedderVariant: config.multiCodeEmbedderVariant,
+                textProjectorVariant: config.textProjectorVariant,
+                speechDecoderVariant: config.speechDecoderVariant,
                 downloadRevision: config.downloadRevision,
                 downloadAdditionalPatterns: config.downloadAdditionalPatterns,
                 useBackgroundDownloadSession: config.useBackgroundDownloadSession
@@ -469,6 +479,15 @@ open class TTSKit: @unchecked Sendable {
         // Load tokenizer (skipped in prewarm - only CoreML compilation needed).
         if !prewarmMode {
             try await loadTokenizerIfNeeded()
+        }
+
+        // Propagate Qwen3-specific config to the concrete SpeechDecoder before `loadModel`
+        // selects which function of the multifunction asset to compile.
+        if let qwen3SD = speechDecoder as? Qwen3SpeechDecoder {
+            qwen3SD.mode = config.speechDecoderMode
+        }
+        if let qwen3MCD = multiCodeDecoder as? Qwen3MultiCodeDecoder {
+            qwen3MCD.mode = config.multiCodeDecoderMode
         }
 
         // Load the six CoreML models.
@@ -584,7 +603,7 @@ open class TTSKit: @unchecked Sendable {
     /// Mirrors `WhisperKit.loggingCallback(_:)`. Pass `nil` to restore the default
     /// print-based logger.
     open func loggingCallback(_ callback: Logging.LoggingCallback?) {
-        Logging.shared.loggingCallback = callback
+        Logging.updateCallback(callback)
     }
 
     // MARK: - Prompt cache management
@@ -1016,7 +1035,9 @@ open class TTSKit: @unchecked Sendable {
                 text: text, voice: voice, language: language,
                 options: playOptions, callback: callback
             )
-            try audioOut.startPlayback()
+            try audioOut.startPlayback(
+                preserveExistingAudioSession: config.preserveExistingAudioSession
+            )
             audioOut.setBufferDuration(0)
             audioOut.enqueueAudioChunk(result.audio)
             await audioOut.stopPlayback(waitForCompletion: true)
@@ -1026,7 +1047,10 @@ open class TTSKit: @unchecked Sendable {
         // Streaming requires sequential generation to preserve chunk order.
         playOptions.concurrentWorkerCount = 1
 
-        try audioOut.startPlayback(deferEngineStart: true)
+        try audioOut.startPlayback(
+            deferEngineStart: true,
+            preserveExistingAudioSession: config.preserveExistingAudioSession
+        )
         switch playbackStrategy {
             case .stream: audioOut.setBufferDuration(0)
             case let .buffered(secs): audioOut.setBufferDuration(secs)

@@ -16,6 +16,12 @@ struct SidebarView: View {
 
             Divider()
 
+            // Decoder modes — model-loading choices
+            SpeechDecoderModeView()
+            MultiCodeDecoderModeView()
+
+            Divider()
+
             // Compute units configuration
             ComputeUnitsView()
                 .disabled(vm.modelState.isBusy)
