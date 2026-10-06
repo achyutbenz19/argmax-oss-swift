@@ -333,7 +333,6 @@ open class WhisperKit {
                 // Model not specified, fetch remote config to get the recommended default
                 // Propagate useBackgroundDownloadSession so the pre-download config fetch
                 // also runs through the background URLSession when the caller opted in.
-                // ref: https://github.com/argmaxinc/argmax-oss-swift/issues/337
                 let modelSupport = await WhisperKit.recommendedRemoteModels(
                     from: repo,
                     downloadBase: downloadBase,
