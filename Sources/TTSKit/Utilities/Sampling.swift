@@ -260,11 +260,7 @@ public class GreedyTokenSampler: TokenSampling, @unchecked Sendable {
             let probsArray = await topKProbs.toFloatArray()
             let idxArray = await topKIndices.toIntArray()
             let probSum = probsArray.reduce(0, +)
-            // Numerical underflow at low temperature and small topK (e.g. 0.10
-            // + 15 over long-form generation) can round every top-k probability
-            // to zero. Float.random(in: 0..<0) crashes; fall back to greedy
-            // (the highest-probability token, which topK returns first).
-            // ref: https://github.com/argmaxinc/argmax-oss-swift/issues/450
+            // Underflow can round every top-k probability to zero, so fall back to the highest one
             guard probSum > 0 else {
                 return idxArray.first.map(Int32.init) ?? Int32(vocabSize - 1)
             }
