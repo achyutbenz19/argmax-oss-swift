@@ -54,6 +54,24 @@ struct TranscribeCLI: AsyncParsableCommand {
         if ChunkingStrategy(rawValue: cliArguments.chunkingStrategy) == nil {
             throw ValidationError("Wrong chunking strategy \"\(cliArguments.chunkingStrategy)\", valid strategies: \(ChunkingStrategy.allCases.map { $0.rawValue })")
         }
+
+        if cliArguments.incrementalLoading {
+            if let duration = cliArguments.incrementalChunkDuration {
+                guard duration.isFinite, duration > 0 else {
+                    throw ValidationError("--incremental-chunk-duration must be greater than 0")
+                }
+            }
+
+            if let bufferSize = cliArguments.incrementalChunkBufferSize {
+                guard bufferSize > 0 else {
+                    throw ValidationError("--incremental-chunk-buffer-size must be greater than 0")
+                }
+            }
+
+            guard cliArguments.clipTimestamps.isEmpty else {
+                throw ValidationError("--clip-timestamps is not supported with --incremental-loading")
+            }
+        }
     }
 
     mutating func run() async throws {
@@ -127,6 +145,18 @@ struct TranscribeCLI: AsyncParsableCommand {
         if cliArguments.verbose {
             print("\nConfiguring decoding options...")
         }
+        let audioInputOptions = TranscribeCLIUtils.createAudioInputOptions(from: cliArguments)
+        if cliArguments.verbose {
+            switch audioInputOptions.audioLoadingMode {
+            case .fullFile:
+                print("File loading mode: full file")
+            case .incremental(let chunkDurationSeconds, let maxBufferedChunks):
+                print("File loading mode: incremental")
+                print(String(format: "  - Chunk duration: %.2f seconds", chunkDurationSeconds))
+                print("  - Chunk buffer size: \(maxBufferedChunks)")
+                print("  - VAD boundary detection: enabled")
+            }
+        }
 
         if let promptText = cliArguments.prompt, promptText.count > 0, let tokenizer = whisperKit.tokenizer {
             if cliArguments.verbose {
@@ -188,7 +218,9 @@ struct TranscribeCLI: AsyncParsableCommand {
             let smoothingFactor = 0.1 // For exponential moving average
 
             // Start the progress bar task
+            let weakWhisperKit = WeakSendableWrapper(whisperKit)
             progressBarTask = Task {
+                guard let whisperKit = weakWhisperKit.value else { return }
                 while await progressState.getIsTranscribing() {
                     let progress = whisperKit.progress.fractionCompleted
                     let currentTime = Date()
@@ -214,6 +246,7 @@ struct TranscribeCLI: AsyncParsableCommand {
         // Start the transcription
         let transcribeResult: [Result<[TranscriptionResult], Swift.Error>] = await whisperKit.transcribeWithResults(
             audioPaths: resolvedAudioPaths,
+            audioInputOptions: audioInputOptions,
             decodeOptions: options
         )
 

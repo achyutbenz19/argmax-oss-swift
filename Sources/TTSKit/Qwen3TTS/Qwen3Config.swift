@@ -105,11 +105,11 @@ public enum TTSModelVariant: String, CustomStringConvertible, CaseIterable, Send
 /// Default quantization variant strings matching the standard model repository layout.
 public enum Qwen3VariantDefaults {
     public static let codeDecoder = "W8A16-stateful"
-    public static let multiCodeDecoder = "W8A16"
+    public static let multiCodeDecoder = "W8A16-multifunction"
     public static let codeEmbedder = "W16A16"
     public static let multiCodeEmbedder = "W16A16"
     public static let textProjector = "W8A16"
-    public static let speechDecoder = "W8A16"
+    public static let speechDecoder = "W8A16-multifunction"
 }
 
 // MARK: - TTSKit Configuration
@@ -190,6 +190,14 @@ open class TTSKitConfig {
     public var textProjectorVariant: String
     public var speechDecoderVariant: String
 
+    /// Which multifunction SpeechDecoder function to load. `.latencyOptimized`
+    /// (default) decodes one frame per call; `.throughputOptimized` decodes four.
+    public var speechDecoderMode: Qwen3SpeechDecoderMode
+
+    /// Which multifunction MultiCodeDecoder function to load. `.stepped` (default)
+    /// decodes one position per call; `.fused` decodes the whole frame in one call.
+    public var multiCodeDecoderMode: Qwen3MultiCodeDecoderMode
+
     // MARK: - Compute
 
     /// Compute unit configuration per model component.
@@ -235,6 +243,13 @@ open class TTSKitConfig {
     /// `nil` loads when `modelFolder` is non-nil, matching WhisperKit's default.
     public var load: Bool?
 
+    // MARK: - Playback
+
+    /// Preserve the host app's existing iOS audio session configuration during playback startup.
+    /// When `true`, `TTSKit` only activates the shared `AVAudioSession` instead of forcing
+    /// it to `.playback`.
+    public var preserveExistingAudioSession: Bool
+
     // MARK: - Generation
 
     /// Optional seed for reproducible generation.
@@ -274,6 +289,8 @@ open class TTSKitConfig {
         multiCodeEmbedderVariant: String? = nil,
         textProjectorVariant: String? = nil,
         speechDecoderVariant: String? = nil,
+        speechDecoderMode: Qwen3SpeechDecoderMode = .latencyOptimized,
+        multiCodeDecoderMode: Qwen3MultiCodeDecoderMode = .stepped,
         computeOptions: ComputeOptions = ComputeOptions(),
         verbose: Bool = true,
         logLevel: Logging.LogLevel = .info,
@@ -283,6 +300,7 @@ open class TTSKitConfig {
         download: Bool = true,
         prewarm: Bool? = nil,
         load: Bool? = nil,
+        preserveExistingAudioSession: Bool = false,
         seed: UInt64? = nil
     ) {
         self.model = model
@@ -299,6 +317,8 @@ open class TTSKitConfig {
         self.multiCodeEmbedderVariant = multiCodeEmbedderVariant ?? model.multiCodeEmbedderVariant
         self.textProjectorVariant = textProjectorVariant ?? model.textProjectorVariant
         self.speechDecoderVariant = speechDecoderVariant ?? model.speechDecoderVariant
+        self.speechDecoderMode = speechDecoderMode
+        self.multiCodeDecoderMode = multiCodeDecoderMode
         self.computeOptions = computeOptions
         self.verbose = verbose
         self.logLevel = logLevel
@@ -308,6 +328,7 @@ open class TTSKitConfig {
         self.download = download
         self.prewarm = prewarm
         self.load = load
+        self.preserveExistingAudioSession = preserveExistingAudioSession
         self.seed = seed
     }
 
